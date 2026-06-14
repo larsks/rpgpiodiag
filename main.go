@@ -70,7 +70,6 @@ func main() {
 	}
 
 	prevState := make([]bool, len(gpioPins))
-	printAllPins(prevState)
 
 	for {
 		flasher.Update()
@@ -90,9 +89,11 @@ func main() {
 		}
 
 		for i, pin := range gpioPins {
+			// Skip if this pin is claimed by a rotary encoder
 			if encoderPins[pin] {
 				continue
 			}
+
 			val := pin.Get()
 			if val != prevState[i] {
 				fmt.Printf("GPIO%-2d -> %d\n", pin, boolToInt(val))
