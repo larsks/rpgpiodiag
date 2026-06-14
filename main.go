@@ -16,21 +16,47 @@ var gpioPins = []machine.Pin{
 	machine.GPIO26, machine.GPIO27, machine.GPIO28, machine.GPIO29,
 }
 
+func pinLabel(pin machine.Pin) string {
+	for _, enc := range encoders {
+		if pin == enc.PinA {
+			return " " + enc.Name + "-A"
+		}
+		if pin == enc.PinB {
+			return " " + enc.Name + "-B"
+		}
+	}
+	return ""
+}
+
 func printAllPins(prevState []bool) {
 	fmt.Println("=== GPIO Pin State ===")
 	for i, pin := range gpioPins {
 		prevState[i] = pin.Get()
-		fmt.Printf("GPIO%-2d = %d\n", pin, boolToInt(prevState[i]))
+		fmt.Printf("GPIO%-2d = %d%s\n", pin, boolToInt(prevState[i]), pinLabel(pin))
 	}
 	fmt.Println("=== Monitoring for changes ===")
 }
 
+var encoders = []*RotaryEncoder{
+	NewRotaryEncoder("ENC0", machine.GPIO2, machine.GPIO3),
+	NewRotaryEncoder("ENC1", machine.GPIO5, machine.GPIO6),
+}
+
 func main() {
-	prevState := make([]bool, len(gpioPins))
-	for _, pin := range gpioPins {
-		pin.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
+	encoderPins := make(map[machine.Pin]bool)
+	for _, enc := range encoders {
+		for _, p := range enc.Pins() {
+			encoderPins[p] = true
+		}
 	}
 
+	for _, pin := range gpioPins {
+		if !encoderPins[pin] {
+			pin.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
+		}
+	}
+
+	prevState := make([]bool, len(gpioPins))
 	printAllPins(prevState)
 
 	for {
@@ -44,7 +70,14 @@ func main() {
 			}
 		}
 
+		for _, enc := range encoders {
+			enc.Update()
+		}
+
 		for i, pin := range gpioPins {
+			if encoderPins[pin] {
+				continue
+			}
 			val := pin.Get()
 			if val != prevState[i] {
 				fmt.Printf("GPIO%-2d -> %d\n", pin, boolToInt(val))
