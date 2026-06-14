@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"machine"
 	"time"
-
-	"tinygo.org/x/drivers/ws2812"
 )
 
+// We will monitor these GPIO pins for changes. They will be configured as
+// inputs with pull-ups enabled.
 var gpioPins = []machine.Pin{
 	machine.GPIO0, machine.GPIO1, machine.GPIO2, machine.GPIO3,
 	machine.GPIO4, machine.GPIO5, machine.GPIO6, machine.GPIO7,
@@ -19,6 +19,18 @@ var gpioPins = []machine.Pin{
 	machine.GPIO26, machine.GPIO27, machine.GPIO28, machine.GPIO29,
 }
 
+// We will monitor these rotary encoders.
+var encoders = []*RotaryEncoder{
+	NewRotaryEncoder("ENC0", machine.GPIO2, machine.GPIO3),
+	NewRotaryEncoder("ENC1", machine.GPIO5, machine.GPIO6),
+}
+
+var (
+	ledRed = color.RGBA{R: 128}
+)
+
+// Produce optional detail information for a GPIO pin. For rotary encoders it
+// prints the encoder and signal name.
 func pinLabel(pin machine.Pin) string {
 	for _, enc := range encoders {
 		if pin == enc.PinA {
@@ -31,6 +43,7 @@ func pinLabel(pin machine.Pin) string {
 	return ""
 }
 
+// Print the state of  all monitored GPIO pins.
 func printAllPins(prevState []bool) {
 	fmt.Println("=== GPIO Pin State ===")
 	for i, pin := range gpioPins {
@@ -40,22 +53,8 @@ func printAllPins(prevState []bool) {
 	fmt.Println("=== Monitoring for changes ===")
 }
 
-var encoders = []*RotaryEncoder{
-	NewRotaryEncoder("ENC0", machine.GPIO2, machine.GPIO3),
-	NewRotaryEncoder("ENC1", machine.GPIO5, machine.GPIO6),
-}
-
-var (
-	ledRed = color.RGBA{R: 128}
-	ledOff = color.RGBA{}
-)
-
 func main() {
-	neoPin := machine.WS2812
-	neoPin.Configure(machine.PinConfig{Mode: machine.PinOutput})
-	ws := ws2812.New(neoPin)
-	ledOn := false
-	ledTicks := 0
+	flasher := NewFlasher().SetColor(ledRed).Build()
 
 	encoderPins := make(map[machine.Pin]bool)
 	for _, enc := range encoders {
@@ -74,16 +73,7 @@ func main() {
 	printAllPins(prevState)
 
 	for {
-		ledTicks++
-		if ledTicks >= 100 {
-			ledTicks = 0
-			ledOn = !ledOn
-			if ledOn {
-				ws.WriteColors([]color.RGBA{ledRed})
-			} else {
-				ws.WriteColors([]color.RGBA{ledOff})
-			}
-		}
+		flasher.Update()
 
 		for machine.Serial.Buffered() > 0 {
 			b, err := machine.Serial.ReadByte()
