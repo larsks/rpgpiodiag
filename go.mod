@@ -1,0 +1,3 @@
+module rpgpiodiag
+
+go 1.22.0
