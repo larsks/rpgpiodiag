@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime/interrupt"
 	"machine"
 )
 
@@ -24,13 +25,19 @@ type RotaryEncoder struct {
 func NewRotaryEncoder(name string, pinA, pinB machine.Pin) *RotaryEncoder {
 	pinA.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
 	pinB.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
-	return &RotaryEncoder{
+	enc := &RotaryEncoder{
 		Name:           name,
 		PinA:           pinA,
 		PinB:           pinB,
 		StepsPerDetent: 4,
 		prevState:      readPinState(pinA, pinB),
 	}
+	handler := func(machine.Pin) {
+		enc.handleInterrupt()
+	}
+	pinA.SetInterrupt(machine.PinToggle, handler)
+	pinB.SetInterrupt(machine.PinToggle, handler)
+	return enc
 }
 
 func readPinState(pinA, pinB machine.Pin) uint8 {
@@ -44,23 +51,27 @@ func readPinState(pinA, pinB machine.Pin) uint8 {
 	return state
 }
 
-func (e *RotaryEncoder) Update() {
+func (e *RotaryEncoder) handleInterrupt() {
 	curr := readPinState(e.PinA, e.PinB)
 	index := (e.prevState << 2) | curr
 	delta := encoderTable[index]
 	e.prevState = curr
-
-	if delta == 0 {
-		return
-	}
-
 	e.position += int(delta)
-	if e.position >= e.StepsPerDetent {
+}
+
+func (e *RotaryEncoder) Update() {
+	state := interrupt.Disable()
+	pos := e.position
+	if pos >= e.StepsPerDetent {
+		e.position -= e.StepsPerDetent
+		interrupt.Restore(state)
 		fmt.Printf("%s: CW\n", e.Name)
-		e.position = 0
-	} else if e.position <= -e.StepsPerDetent {
+	} else if pos <= -e.StepsPerDetent {
+		e.position += e.StepsPerDetent
+		interrupt.Restore(state)
 		fmt.Printf("%s: CCW\n", e.Name)
-		e.position = 0
+	} else {
+		interrupt.Restore(state)
 	}
 }
 

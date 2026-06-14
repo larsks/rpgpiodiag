@@ -21,8 +21,8 @@ var gpioPins = []machine.Pin{
 
 // We will monitor these rotary encoders.
 var encoders = []*RotaryEncoder{
-	NewRotaryEncoder("ENC0", machine.GPIO2, machine.GPIO3),
-	NewRotaryEncoder("ENC1", machine.GPIO5, machine.GPIO6),
+	NewRotaryEncoder("ENC0", machine.GPIO3, machine.GPIO2),
+	NewRotaryEncoder("ENC1", machine.GPIO6, machine.GPIO5),
 }
 
 var (
