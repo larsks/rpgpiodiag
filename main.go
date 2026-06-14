@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"machine"
 	"time"
+
+	"tinygo.org/x/drivers/ws2812"
 )
 
 var gpioPins = []machine.Pin{
@@ -11,7 +14,7 @@ var gpioPins = []machine.Pin{
 	machine.GPIO4, machine.GPIO5, machine.GPIO6, machine.GPIO7,
 	machine.GPIO8, machine.GPIO9, machine.GPIO10, machine.GPIO11,
 	machine.GPIO12, machine.GPIO13, machine.GPIO14,
-	machine.GPIO16, machine.GPIO17, machine.GPIO18, machine.GPIO19,
+	machine.GPIO17, machine.GPIO18, machine.GPIO19,
 	machine.GPIO20, machine.GPIO21, machine.GPIO22, machine.GPIO23,
 	machine.GPIO26, machine.GPIO27, machine.GPIO28, machine.GPIO29,
 }
@@ -42,7 +45,18 @@ var encoders = []*RotaryEncoder{
 	NewRotaryEncoder("ENC1", machine.GPIO5, machine.GPIO6),
 }
 
+var (
+	ledRed = color.RGBA{R: 128}
+	ledOff = color.RGBA{}
+)
+
 func main() {
+	neoPin := machine.WS2812
+	neoPin.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	ws := ws2812.New(neoPin)
+	ledOn := false
+	ledTicks := 0
+
 	encoderPins := make(map[machine.Pin]bool)
 	for _, enc := range encoders {
 		for _, p := range enc.Pins() {
@@ -60,6 +74,17 @@ func main() {
 	printAllPins(prevState)
 
 	for {
+		ledTicks++
+		if ledTicks >= 100 {
+			ledTicks = 0
+			ledOn = !ledOn
+			if ledOn {
+				ws.WriteColors([]color.RGBA{ledRed})
+			} else {
+				ws.WriteColors([]color.RGBA{ledOff})
+			}
+		}
+
 		for machine.Serial.Buffered() > 0 {
 			b, err := machine.Serial.ReadByte()
 			if err != nil {
