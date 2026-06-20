@@ -53,6 +53,18 @@ func printAllPins(prevState []bool) {
 	fmt.Println("=== Monitoring for changes ===")
 }
 
+var bootselPins = []machine.Pin{
+	machine.GPIO0, machine.GPIO1, machine.GPIO28, machine.GPIO29,
+}
+
+func checkBootsel() {
+	for _, pin := range bootselPins {
+		if !pin.Get() {
+			machine.EnterBootloader()
+		}
+	}
+}
+
 func main() {
 	flasher := NewFlasher().SetColor(ledRed).Build()
 
@@ -68,6 +80,8 @@ func main() {
 			pin.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
 		}
 	}
+
+	checkBootsel()
 
 	prevState := make([]bool, len(gpioPins))
 
